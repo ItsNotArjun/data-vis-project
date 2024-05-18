@@ -26,7 +26,7 @@ function App() {
 //=============================================================================
 //fetching location list
   useEffect(() => {
-    fetch('http://192.168.1.8:5000/site_list')
+    fetch('http://192.168.1.7:5000/site_list')
       .then((res) => {
         return res.json();
       })
@@ -59,8 +59,8 @@ function App() {
       return;
     };
 
-    let url1 = 'http://192.168.1.8:5000/location?id='
-    let urlRefresh = 'http://192.168.1.8:5000/location/refresh?id='
+    let url1 = 'http://192.168.1.7:5000/location?id='
+    let urlRefresh = 'http://192.168.1.7:5000/location/refresh?id='
 
     for (let i = 0; i+1 <= location.length; i++) {
       if (value.label == location[i].name) {
@@ -156,7 +156,7 @@ function App() {
 //setting style
     function getNodeColor(node) {
       if (node.location != location) {
-        return 'rgb(21, 131, 85)'
+        return 'rgb(232, 94, 28)'
       }
       else if (node.type == 'rtu') {
       return 'rgb(25, 171, 255)'
@@ -174,51 +174,160 @@ function App() {
       else {return '5 2'}
     }
 //=============================================    
-//rendering  
-    const linkElements = svg.append('g')
-    .selectAll('line')
-    .data(links)
-    .enter().append('line')
-      .attr('stroke-width', 1.5)
-      .attr('stroke', 'white')
-      .attr('stroke-dasharray', getLineStyle);
+//rendering
+
+
+
+  const linkElements = svg.append('g')
+  .selectAll('line')
+  .data(links)
+  .enter().append('line')
+    .attr('stroke-width', 1.5)
+    .attr('stroke', 'white')
+    .attr('stroke-dasharray', getLineStyle);
+
+  const graph = svg.selectAll('node')
+  .data(nodes)
+  .enter().append('g')
+  .attr('class', function(d) { return 'node' + " " + d.id})
+  .on('click', function (d) {
+
+    function getConnectedNodesRadius (node) {
+      let x = new Set ();
+      let big = false;
+      if (node.id == d.currentTarget.__data__.id) {
+        return 31;
+      }
+      else {
+        for (let i = 0; i + 1 <= links.length; i++) {
+          if (d.currentTarget.__data__.id == links[i].source.id) {
+            x.add(links[i].target.id)
+          };
+          if (d.currentTarget.__data__.id == links[i].target.id) {
+            x.add(links[i].source.id)
+          };
+        };
+        let y = [...x]
+        for (let i = 0; i + 1 <= y.length; i++) {
+          if (node.id == y[i]) {
+            big = true;
+          };
+        };
+        if (big == true) {
+          return 31;
+        }
+        else {
+          return 20;
+        };
+      };
+    };
+
+    function getConnectedNodesFontSize (node) {
+      let x = new Set ();
+      let big = false;
+      if (node.id == d.currentTarget.__data__.id) {
+        return 16;
+      }
+      else {
+        for (let i = 0; i + 1 <= links.length; i++) {
+          if (d.currentTarget.__data__.id == links[i].source.id) {
+            x.add(links[i].target.id)
+          };
+          if (d.currentTarget.__data__.id == links[i].target.id) {
+            x.add(links[i].source.id)
+          };
+        };
+        let y = [...x]
+        for (let i = 0; i + 1 <= y.length; i++) {
+          if (node.id == y[i]) {
+            big = true;
+          };
+        };
+        if (big == true) {
+          return '16';
+        }
+        else {
+          return '12';
+        };
+      };
+    };
+
+    function getConnectedNodesOpacity (node) {
+      let x = new Set ();
+      let big = false;
+      if (node.id == d.currentTarget.__data__.id) {
+        return 16;
+      }
+      else {
+        for (let i = 0; i + 1 <= links.length; i++) {
+          if (d.currentTarget.__data__.id == links[i].source.id) {
+            x.add(links[i].target.id)
+          };
+          if (d.currentTarget.__data__.id == links[i].target.id) {
+            x.add(links[i].source.id)
+          };
+        };
+        let y = [...x]
+        for (let i = 0; i + 1 <= y.length; i++) {
+          if (node.id == y[i]) {
+            big = true;
+          };
+        };
+        if (big == true) {
+          return '1';
+        }
+        else {
+          return '0.7';
+        };
+      };
+    };
+
+    nodeElements.attr('r', getConnectedNodesRadius).attr('opacity', getConnectedNodesOpacity)
+    textElements.attr('font-size', getConnectedNodesFontSize)
+    linkElements.style('stroke-width', function(l) {
+      if(l.source.id == d.currentTarget.__data__.id || l.target.id == d.currentTarget.__data__.id) {
+      return 3;
+      }
+      else {
+        return 1.5;
+      };
+    });
+   
+    linkElements.style('opacity', function(l) {
+      if(l.source.id == d.currentTarget.__data__.id || l.target.id == d.currentTarget.__data__.id) {
+        return 1;
+      }
+      else {
+        return 0.3;
+      };
+      });
     
-    const nodeElements = svg.append('g')
-    .selectAll('circle')
-    .data(nodes)
-    .enter().append('circle')
-      .attr('r', 26)
-      .attr('fill', getNodeColor)
-      .on('mouseover', function (d) {
-        d3.select(this)
-          .transition()
-          .duration('50')
-          .attr('r', '31');
-      })
-      .on('mouseout', function (d) {
-        d3.select(this)
-          .transition()
-          .duration('50')
-          .attr('r', '26');
-        });
-    
-    const textElements = svg.append('g')
-    .selectAll('text')
-    .data(nodes)
-    .enter().append('text')
-      .text(node => node.id)
-      .attr('font-size', 15)
-      .attr('fill', 'black')
-      .attr('text-anchor', 'middle')
-      .attr('dx', 0)
-      .attr('dy', '.35em');
+  })
+  .on('mouseout', function (d) {
+    nodeElements.attr('r', 26).attr('opacity', 1);
+    textElements.attr('font-size', '15');
+    linkElements.style('stroke-width', 1.5);
+    linkElements.style('opacity', 1);
+    });
+
+  const nodeElements = graph.append('circle')
+    .attr('r', 26)
+    .attr('fill', getNodeColor)
+      
+  const textElements = graph.append('text')
+    .text(node => node.id)
+    .attr('font-size', 15)
+    .attr('fill', 'black')
+    .attr('text-anchor', 'middle')
+    .attr('dx', 0)
+    .attr('dy', '.35em');
 
   }, [rawData]);
 //=============================================================================
 //refresh button
 const handleClick = event => {
-  let url1 = 'http://192.168.1.2:5000/location?id='
-  let urlRefresh = 'http://192.168.1.2:5000/location/refresh?id='
+  let url1 = 'http://192.168.1.7:5000/location?id='
+  let urlRefresh = 'http://192.168.1.7:5000/location/refresh?id='
 
     fetch(urlRefresh + urlref.current)
     .then((res) => {
@@ -245,7 +354,7 @@ const handleClick = event => {
             <Slider
             step={20}
             min={0}
-            max={60}
+            max={140}
             />
             <Button
             onClick={handleClick}

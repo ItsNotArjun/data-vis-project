@@ -6,8 +6,9 @@ import Autocomplete from '@mui/material/Autocomplete';
 import Button from '@mui/material/Button';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
 import Slider from '@mui/material/Slider';
+import Box from '@mui/material/Box';
+import { render } from '@testing-library/react';
 //=============================================================================
-
 function App() {
   
   const darkTheme = createTheme({
@@ -17,11 +18,15 @@ function App() {
   });
 
   const svgRef = useRef(null);
-  const [rawData, setRawData] = useState(null);
+  const [fetchedData, setFetchedData] = useState(null);
+  const [renderData, setRenderData] = useState(null);
   const [location, setLocation] = useState(null);
   const [items, setItems] = useState(null);
   const [value, setValue] = useState(null);
+  const [sliderValue, setSliderValue] = useState(null);
   const urlref = useRef(null);
+  const marks = [{label:'2h', value:'0'}, {label:'4h', value:'20'}, {label:'6h', value:'40'}, {label:'8h', value:'60'}, {label:'10h', value:'80'}, {label:'12h', value:'100'}, {label:'1d', value:'120'}, {label:'2d', value:'140'}, {label:'3d', value:'160'}]
+  const currentTime = Date.now()
 
 //=============================================================================
 //fetching location list
@@ -59,8 +64,8 @@ function App() {
       return;
     };
 
-    let url1 = 'http://192.168.1.7:5000/location?id='
-    let urlRefresh = 'http://192.168.1.7:5000/location/refresh?id='
+    let url1 = 'http://192.168.1.7:5000/location?id=';
+    let urlRefresh = 'http://192.168.1.7:5000/location/refresh?id=';
 
     for (let i = 0; i+1 <= location.length; i++) {
       if (value.label == location[i].name) {
@@ -85,31 +90,75 @@ function App() {
                     return res.json();
                   })
                   .then((data3) => {
-                    setRawData(data3);
+                    setFetchedData(data3);
                   });
-              }
-            })
+              };
+            });
           }
           else {
-            setRawData(data);
+            setFetchedData(data);
           };
         });
-    }, [value])
+    }, [value]);
 
+//=============================================================================
+//slider
+  useEffect(() => {
+    if (!fetchedData) {
+      return;
+    };
+    const hour = 3600000;
+    const nodes = fetchedData[0];
+    const links = fetchedData[1];
+    let tempLinks = [];
+    let x = new Set();
+    if (sliderValue <= 100) {
+    for (let i = 0; i + 1 <= 6; i ++) {
+        if (sliderValue == i * 20) {
+          for (let j = 0; j + 1 <= links.length; j++) {
+            if (currentTime - ((2 * (i + 1)) * hour) <= links[j].lastUpload) {
+              tempLinks.push(links[j]);
+            };
+          };
+          let x = [];
+          x.push(nodes);
+          x.push(tempLinks);
+          console.log(x)
+          setRenderData(x);
+        };
+      };
+    }
+    else {
+      for (let i = 0; i + 1 <= 3; i++) {
+        if (sliderValue == (i * 20) + 120) {
+          for (let j = 0; j + 1 <= links.length; j++) {
+            if (currentTime - ((24 * (i + 1)) * hour) <= links[j].lastUpload) {
+              tempLinks.push(links[j]);
+            };
+          };
+          let x = [];
+          x.push(nodes);
+          x.push(tempLinks);
+          setRenderData(x);
+        };
+      };
+    };
+
+  }, [sliderValue])
 //=============================================================================
 //drawing graph
   useEffect(() => {
-    if (!rawData) {
+    if (!renderData) {
       return;
     };
 
-    if (rawData.length == 0) {
-      const text = document.createTextNode('no data')
+    if (renderData.length == 0) {
+      const text = document.createTextNode('no data');
       document.getElementById('main').appendChild(text);
     };
 
-  const links = [...rawData[1]];
-  const nodes = [...rawData[0]];
+  const nodes = [...renderData[0]];
+  const links = [...renderData[1]];
 
   let location = '';
 
@@ -150,34 +199,52 @@ function App() {
         .attr('y2', link => link.target.y)
       textElements
         .attr('x', node => node.x)
-        .attr('y', node => node.y)
+        .attr('y', node => node.y);
       });
+
 //=============================================
 //setting style
     function getNodeColor(node) {
       if (node.location != location) {
-        return 'rgb(232, 94, 28)'
+        return 'rgb(232, 94, 28)';
       }
       else if (node.type == 'rtu') {
-      return 'rgb(25, 171, 255)'
+      return 'rgb(25, 171, 255)';
       }
       else {
-        return 'rgb(237, 153, 1)'
+        return 'rgb(237, 153, 1)';
       };
 
     };
 
     function getLineStyle(link) {
       if(link.direct == true) {
-        return ''
+        return '';
       }
-      else {return '5 2'}
-    }
+      else {return '5 2';};
+    };
+
+    function getOutline(node) {
+      let out = true;
+      for (let i = 0; i + 1 <= links.length; i++) {
+        console.log(`node: ${node.id} link source: ${links[i].source} link target: ${links[i].target}`)
+          if (node == links[i].source) {
+            out = false;
+          }
+          else if (node == links[i].target) {
+            out = false;
+          }
+        }
+      if (out == true) {
+        return 2;
+      }
+      else {
+        return 0;
+      };
+    };
+
 //=============================================    
 //rendering
-
-
-
   const linkElements = svg.append('g')
   .selectAll('line')
   .data(links)
@@ -191,7 +258,6 @@ function App() {
   .enter().append('g')
   .attr('class', function(d) { return 'node' + " " + d.id})
   .on('click', function (d) {
-
     function getConnectedNodesRadius (node) {
       let x = new Set ();
       let big = false;
@@ -201,13 +267,13 @@ function App() {
       else {
         for (let i = 0; i + 1 <= links.length; i++) {
           if (d.currentTarget.__data__.id == links[i].source.id) {
-            x.add(links[i].target.id)
+            x.add(links[i].target.id);
           };
           if (d.currentTarget.__data__.id == links[i].target.id) {
-            x.add(links[i].source.id)
+            x.add(links[i].source.id);
           };
         };
-        let y = [...x]
+        let y = [...x];
         for (let i = 0; i + 1 <= y.length; i++) {
           if (node.id == y[i]) {
             big = true;
@@ -231,13 +297,13 @@ function App() {
       else {
         for (let i = 0; i + 1 <= links.length; i++) {
           if (d.currentTarget.__data__.id == links[i].source.id) {
-            x.add(links[i].target.id)
+            x.add(links[i].target.id);
           };
           if (d.currentTarget.__data__.id == links[i].target.id) {
-            x.add(links[i].source.id)
+            x.add(links[i].source.id);
           };
         };
-        let y = [...x]
+        let y = [...x];
         for (let i = 0; i + 1 <= y.length; i++) {
           if (node.id == y[i]) {
             big = true;
@@ -261,13 +327,13 @@ function App() {
       else {
         for (let i = 0; i + 1 <= links.length; i++) {
           if (d.currentTarget.__data__.id == links[i].source.id) {
-            x.add(links[i].target.id)
+            x.add(links[i].target.id);
           };
           if (d.currentTarget.__data__.id == links[i].target.id) {
-            x.add(links[i].source.id)
+            x.add(links[i].source.id);
           };
         };
-        let y = [...x]
+        let y = [...x];
         for (let i = 0; i + 1 <= y.length; i++) {
           if (node.id == y[i]) {
             big = true;
@@ -282,8 +348,8 @@ function App() {
       };
     };
 
-    nodeElements.attr('r', getConnectedNodesRadius).attr('opacity', getConnectedNodesOpacity)
-    textElements.attr('font-size', getConnectedNodesFontSize)
+    nodeElements.attr('r', getConnectedNodesRadius).attr('opacity', getConnectedNodesOpacity);
+    textElements.attr('font-size', getConnectedNodesFontSize);
     linkElements.style('stroke-width', function(l) {
       if(l.source.id == d.currentTarget.__data__.id || l.target.id == d.currentTarget.__data__.id) {
       return 3;
@@ -300,8 +366,7 @@ function App() {
       else {
         return 0.3;
       };
-      });
-    
+    });
   })
   .on('mouseout', function (d) {
     nodeElements.attr('r', 26).attr('opacity', 1);
@@ -313,6 +378,8 @@ function App() {
   const nodeElements = graph.append('circle')
     .attr('r', 26)
     .attr('fill', getNodeColor)
+    .attr('stroke', 'red')
+    .attr('stroke-width', getOutline)
       
   const textElements = graph.append('text')
     .text(node => node.id)
@@ -322,7 +389,8 @@ function App() {
     .attr('dx', 0)
     .attr('dy', '.35em');
 
-  }, [rawData]);
+  }, [renderData]);
+
 //=============================================================================
 //refresh button
 const handleClick = event => {
@@ -339,8 +407,7 @@ const handleClick = event => {
         return res.json();
       })
       .then((data2) => {
-        console.log(data2);
-        setRawData(data2);
+        setFetchedData(data2);
       });
     });
 };
@@ -351,21 +418,32 @@ const handleClick = event => {
       <div style={{width: 480, height: 100}}>
       <div style={{width: 120, padding: 20, float: 'right'}}>
           <ThemeProvider theme={darkTheme}>
+          <Box sx={{ width: 200, paddingBottom: 2, paddingLeft: 1}}>
             <Slider
+            size='small'
+            valueLabelDisplay='off'
+            defaultValue={80}
+            track={false}
             step={20}
             min={0}
-            max={140}
+            max={160}
+            marks={marks}
+            onChange={(event, newValue) => {
+              setSliderValue(newValue);
+            }}
+            disabled={fetchedData == null ? true : false}
             />
+            </Box>
             <Button
             onClick={handleClick}
-            disabled={rawData == null ? true : false} 
+            disabled={fetchedData == null ? true : false} 
             variant='outlined'
             size='large'>
               refresh
             </Button>
           </ThemeProvider>
         </div>
-        <div style={{width: 300, padding: 20}}>
+        <div style={{width: 300, padding: 20, paddingTop: 27}}>
           <ThemeProvider theme={darkTheme}>
             <Autocomplete
               value={value}

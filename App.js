@@ -14,6 +14,10 @@ import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import Paper from '@mui/material/Paper';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
+import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
+import IconButton from '@mui/material/IconButton';
+import { Collapse } from '@mui/material';
 //=============================================================================
 function App() {
   
@@ -32,6 +36,7 @@ function App() {
   const [sliderValue, setSliderValue] = useState(80);
   const [rows, setRows] = useState([]);
   const [connected, setConnected] = useState([]);
+  const [open, setOpen] = useState(false);
   const urlref = useRef(null);
   const marks = [{label:'2h', value:'0'}, {label:'4h', value:'20'}, {label:'6h', value:'40'}, {label:'8h', value:'60'}, {label:'10h', value:'80'}, {label:'12h', value:'100'}, {label:'1d', value:'120'}, {label:'2d', value:'140'}, {label:'3d', value:'160'}];
   const currentTime = Date.now();
@@ -438,7 +443,7 @@ function App() {
   })
 //---------------------------------------------------------------------------
   .on('mouseout', function (d) {
-    nodeElements.attr('r', 26).attr('opacity', 1).attr('stroke-width', 0);
+    nodeElements.attr('r', 26).attr('opacity', 1).attr('stroke-width', getOutline).attr('stroke', 'red');
     textElements.attr('font-size', '15');
     linkElements.style('stroke-width', 1.5);
     linkElements.style('opacity', 1);
@@ -489,35 +494,50 @@ const handleClick = event => {
             <Table sx={{ minWidth: 450 , maxwidth: 450 }} size='small'>
               <TableHead>
                 <TableRow>
-                  <TableCell>Location Name</TableCell>
-                  <TableCell align='center'>Asset Name</TableCell>
+                  <TableCell>
+                    <IconButton
+                      aria-label="expand row"
+                      size="small"
+                      onClick={() => setOpen(!open)}>
+                        {open ? <KeyboardArrowUpIcon/> : <KeyboardArrowDownIcon/>}
+                    </IconButton>
+                  </TableCell>
+                  <TableCell align='left'>Location Name</TableCell>
+                  <TableCell align='left'>Asset Name</TableCell>
                   <TableCell align='center'>Connected Nodes</TableCell>
                 </TableRow>
               </TableHead>
-              <TableBody>
-                {rows.map((row) => (
-                  <TableRow
-                    key={row.name}
-                    sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
-                  >
-                  <TableCell align='center'>{row.location}</TableCell>
-                  <TableCell align='center'>{row.asset}</TableCell>
-                  <TableCell align='left'></TableCell>
-                  { <TableCell></TableCell> }
-                  </TableRow>
-                ))}
+            </Table>
 
-                {connected.map((row) => (
+            <Collapse in={open} timeout="auto" unmountOnExit>
+              <Table>
+                <TableBody>
+                  {rows.map((row) => (
                     <TableRow
-                    key={row.name}
+                      key={row.name}
+                      sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
                     >
                     <TableCell></TableCell>
-                    <TableCell></TableCell>  
-                    <TableCell align='center'>{row.id}</TableCell>
+                    <TableCell align='right'>{row.location}</TableCell>
+                    <TableCell align='right'>{row.asset}</TableCell>
+                    <TableCell align='left'></TableCell>
+                    { <TableCell></TableCell> }
                     </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                  ))}
+
+                  {connected.map((row) => (
+                      <TableRow
+                      key={row.name}
+                      >
+                      <TableCell></TableCell>
+                      <TableCell></TableCell>
+                      <TableCell></TableCell>
+                      <TableCell align='right'>{row.id}</TableCell>
+                      </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </Collapse>
           </ThemeProvider>
         </div>  
 

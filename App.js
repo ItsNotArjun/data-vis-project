@@ -7,7 +7,13 @@ import Button from '@mui/material/Button';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
 import Slider from '@mui/material/Slider';
 import Box from '@mui/material/Box';
-import { render } from '@testing-library/react';
+import Table from '@mui/material/Table';
+import TableBody from '@mui/material/TableBody';
+import TableCell from '@mui/material/TableCell';
+import TableContainer from '@mui/material/TableContainer';
+import TableHead from '@mui/material/TableHead';
+import TableRow from '@mui/material/TableRow';
+import Paper from '@mui/material/Paper';
 //=============================================================================
 function App() {
   
@@ -20,13 +26,19 @@ function App() {
   const svgRef = useRef(null);
   const [fetchedData, setFetchedData] = useState(null);
   const [renderData, setRenderData] = useState(null);
-  const [location, setLocation] = useState(null);
+  const [locations, setLocations] = useState(null);
   const [items, setItems] = useState(null);
   const [value, setValue] = useState(null);
-  const [sliderValue, setSliderValue] = useState(null);
+  const [sliderValue, setSliderValue] = useState(80);
+  const [rows, setRows] = useState([]);
+  const [connected, setConnected] = useState([]);
   const urlref = useRef(null);
-  const marks = [{label:'2h', value:'0'}, {label:'4h', value:'20'}, {label:'6h', value:'40'}, {label:'8h', value:'60'}, {label:'10h', value:'80'}, {label:'12h', value:'100'}, {label:'1d', value:'120'}, {label:'2d', value:'140'}, {label:'3d', value:'160'}]
-  const currentTime = Date.now()
+  const marks = [{label:'2h', value:'0'}, {label:'4h', value:'20'}, {label:'6h', value:'40'}, {label:'8h', value:'60'}, {label:'10h', value:'80'}, {label:'12h', value:'100'}, {label:'1d', value:'120'}, {label:'2d', value:'140'}, {label:'3d', value:'160'}];
+  const currentTime = Date.now();
+
+  function createData(location, asset) {
+    return [{location, asset}];
+  };
 
 //=============================================================================
 //fetching location list
@@ -36,26 +48,26 @@ function App() {
         return res.json();
       })
       .then((data) => {
-        setLocation(data);
+        setLocations(data);
       });
   }, []);
 
 //=============================================================================
 //inputting location list into autocomplete search
   useEffect(() => {
-    let x = []
-    if(!location) {
+    let x = [];
+    if(!locations) {
       return;
     };
 
-    for (let i=0; i+1 <= location.length; i++) {
+    for (let i=0; i+1 <= locations.length; i++) {
       x.push({
-        label: location[i].name,
+        label: locations[i].name,
         key: i
       });
     };
     setItems(x);
-  }, [location]);
+  }, [locations]);
 
 //=============================================================================
 //fetching data for graph when a location is selected
@@ -67,9 +79,9 @@ function App() {
     let url1 = 'http://192.168.1.7:5000/location?id=';
     let urlRefresh = 'http://192.168.1.7:5000/location/refresh?id=';
 
-    for (let i = 0; i+1 <= location.length; i++) {
-      if (value.label == location[i].name) {
-        urlref.current = location[i].url;
+    for (let i = 0; i+1 <= locations.length; i++) {
+      if (value.label == locations[i].name) {
+        urlref.current = locations[i].url;
       };
     };
 
@@ -111,7 +123,6 @@ function App() {
     const nodes = fetchedData[0];
     const links = fetchedData[1];
     let tempLinks = [];
-    let x = new Set();
     if (sliderValue <= 100) {
     for (let i = 0; i + 1 <= 6; i ++) {
         if (sliderValue == i * 20) {
@@ -123,7 +134,6 @@ function App() {
           let x = [];
           x.push(nodes);
           x.push(tempLinks);
-          console.log(x)
           setRenderData(x);
         };
       };
@@ -144,7 +154,7 @@ function App() {
       };
     };
 
-  }, [sliderValue])
+  }, [sliderValue, value, fetchedData])
 //=============================================================================
 //drawing graph
   useEffect(() => {
@@ -171,7 +181,7 @@ function App() {
   const width = window.innerWidth;
   const height = window.innerHeight;
 
-  const svg = d3.select(svgRef.current)
+  const svg = d3.select(svgRef.current) 
   .attr('width', width)
   .attr('height', height);
 
@@ -227,7 +237,6 @@ function App() {
     function getOutline(node) {
       let out = true;
       for (let i = 0; i + 1 <= links.length; i++) {
-        console.log(`node: ${node.id} link source: ${links[i].source} link target: ${links[i].target}`)
           if (node == links[i].source) {
             out = false;
           }
@@ -258,6 +267,58 @@ function App() {
   .enter().append('g')
   .attr('class', function(d) { return 'node' + " " + d.id})
   .on('click', function (d) {
+//---------------------------------------------------------------------------
+//for table
+    function getLocationName (data) {
+      for (let i = 0; i + 1 <= locations.length; i++) {
+        if (data.currentTarget.__data__.location == locations[i].url) {
+          return locations[i].name;
+        };
+      };
+    };
+
+    function getAssetId (data) {
+      return data.currentTarget.__data__.assetName
+    };
+
+    function getConnectedNodes (data) {
+      let x = new Set ();
+      let empty = true;
+      for (let i = 0; i + 1 <= links.length; i++) {
+        if (data.currentTarget.__data__.id == links[i].source.id) {
+          empty = false;
+          for (let j = 0; j + 1 <= nodes.length; j++) {
+            if(links[i].target.id == nodes[j].id){
+              x.add(nodes[j].assetName)
+            };
+          };
+        };
+        if (data.currentTarget.__data__.id == links[i].target.id) {
+          empty = false;
+          for (let j = 0; j + 1 <= nodes.length; j++) {
+            if(links[i].source.id == nodes[j].id){
+              x.add(nodes[j].assetName)
+            };
+          };
+        };
+      };
+      if ( empty == true) {
+        return [{id: '-'}];
+      }
+      else {
+        let y = [...x];
+        let z = [];
+        for (let i = 0; i + 1 <= y.length; i++) {
+          z.push({id: y[i]});
+        };
+        return z;
+      };
+    };
+
+    setRows((createData(getLocationName(d), getAssetId(d))))
+    setConnected(getConnectedNodes(d))
+//---------------------------------------------------------------------------
+//for clicked effect
     function getConnectedNodesRadius (node) {
       let x = new Set ();
       let big = false;
@@ -343,12 +404,19 @@ function App() {
           return '1';
         }
         else {
-          return '0.7';
+          return '0.1';
         };
       };
     };
 
-    nodeElements.attr('r', getConnectedNodesRadius).attr('opacity', getConnectedNodesOpacity);
+    function getNodeStroke (node) {
+      if (node.id == d.currentTarget.__data__.id) {
+        return 2;
+      }
+      else { return 0}
+    }
+
+    nodeElements.attr('r', getConnectedNodesRadius).attr('opacity', getConnectedNodesOpacity).attr('stroke', 'white').attr('stroke-width', getNodeStroke);
     textElements.attr('font-size', getConnectedNodesFontSize);
     linkElements.style('stroke-width', function(l) {
       if(l.source.id == d.currentTarget.__data__.id || l.target.id == d.currentTarget.__data__.id) {
@@ -364,12 +432,13 @@ function App() {
         return 1;
       }
       else {
-        return 0.3;
+        return 0.1;
       };
     });
   })
+//---------------------------------------------------------------------------
   .on('mouseout', function (d) {
-    nodeElements.attr('r', 26).attr('opacity', 1);
+    nodeElements.attr('r', 26).attr('opacity', 1).attr('stroke-width', 0);
     textElements.attr('font-size', '15');
     linkElements.style('stroke-width', 1.5);
     linkElements.style('opacity', 1);
@@ -415,50 +484,90 @@ const handleClick = event => {
 //=============================================================================
   return (
     <div id='main' className='App' style={{width: window.innerWidth, height: window.innerHeight}}>
-      <div style={{width: 480, height: 100}}>
-      <div style={{width: 120, padding: 20, float: 'right'}}>
+        <div style={{float: 'right'}}>
           <ThemeProvider theme={darkTheme}>
-          <Box sx={{ width: 200, paddingBottom: 2, paddingLeft: 1}}>
-            <Slider
-            size='small'
-            valueLabelDisplay='off'
-            defaultValue={80}
-            track={false}
-            step={20}
-            min={0}
-            max={160}
-            marks={marks}
-            onChange={(event, newValue) => {
-              setSliderValue(newValue);
-            }}
-            disabled={fetchedData == null ? true : false}
-            />
-            </Box>
-            <Button
-            onClick={handleClick}
-            disabled={fetchedData == null ? true : false} 
-            variant='outlined'
-            size='large'>
-              refresh
-            </Button>
+            <Table sx={{ minWidth: 450 , maxwidth: 450 }} size='small'>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Location Name</TableCell>
+                  <TableCell align='center'>Asset Name</TableCell>
+                  <TableCell align='center'>Connected Nodes</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {rows.map((row) => (
+                  <TableRow
+                    key={row.name}
+                    sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
+                  >
+                  <TableCell align='center'>{row.location}</TableCell>
+                  <TableCell align='center'>{row.asset}</TableCell>
+                  <TableCell align='left'></TableCell>
+                  { <TableCell></TableCell> }
+                  </TableRow>
+                ))}
+
+                {connected.map((row) => (
+                    <TableRow
+                    key={row.name}
+                    >
+                    <TableCell></TableCell>
+                    <TableCell></TableCell>  
+                    <TableCell align='center'>{row.id}</TableCell>
+                    </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </ThemeProvider>
+        </div>  
+
+        <div style={{width: 480, height: 100}}>
+          <div style={{width: 120, padding: 20, float: 'right'}}>
+            <ThemeProvider theme={darkTheme}>
+              <Box sx={{ width: 200, paddingBottom: 2, paddingLeft: 1}}>
+                <Slider
+                  size='small'
+                  valueLabelDisplay='off'
+                  defaultValue={80}
+                  track={false}
+                  step={20}
+                  min={0}
+                  max={160}
+                  marks={marks}
+                  onChange={(event, newValue) => {
+                    setSliderValue(newValue);
+                  }}
+                  disabled={fetchedData == null ? true : false}
+                />
+              </Box>
+              <Button
+                onClick={handleClick}
+                disabled={fetchedData == null ? true : false} 
+                variant='outlined'
+                size='large'>
+                refresh
+              </Button>
+            </ThemeProvider>
+          </div>
+
+          <div style={{width: 300, padding: 20, paddingTop: 27}}>
+            <ThemeProvider theme={darkTheme}>
+              <Autocomplete
+                value={value}
+                onChange={(event, newValue) => {
+                  setValue(newValue);
+                }}
+                disablePortal
+                options={items}
+                sx={{ width: 300 }}
+                renderInput={(params) => <TextField {...params} label="location"/>}
+              /> 
+            </ThemeProvider>
+          </div> 
         </div>
-        <div style={{width: 300, padding: 20, paddingTop: 27}}>
-          <ThemeProvider theme={darkTheme}>
-            <Autocomplete
-              value={value}
-              onChange={(event, newValue) => {
-                setValue(newValue);
-              }}
-              disablePortal
-              options={items}
-              sx={{ width: 300 }}
-              renderInput={(params) => <TextField {...params} label="location"/>}
-            /> 
-          </ThemeProvider>
-        </div> 
+      <div style={{ position: 'fixed' }}>
+        <svg ref={svgRef}></svg>
       </div>
-      <svg ref={svgRef}></svg>
     </div>
   )
 };

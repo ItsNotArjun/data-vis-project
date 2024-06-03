@@ -3,7 +3,6 @@ import {useState, useRef, useEffect} from 'react';
 import * as d3 from 'd3';
 import TextField from '@mui/material/TextField';
 import Autocomplete from '@mui/material/Autocomplete';
-import Button from '@mui/material/Button';
 import IconButton from '@mui/material/IconButton';
 import LoadingButton from '@mui/lab/LoadingButton';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
@@ -12,10 +11,8 @@ import Box from '@mui/material/Box';
 import Table from '@mui/material/Table';
 import TableBody from '@mui/material/TableBody';
 import TableCell from '@mui/material/TableCell';
-import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
-import Paper from '@mui/material/Paper';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import RefreshIcon from '@mui/icons-material/Refresh';
@@ -294,12 +291,12 @@ function App() {
 
     function getStrokeColour (node) {
       if (node.location != location) {
-        return '#ffd900'
+        return '#ff9d00'
       }
       else if (node.type == 'rtu') {
         return '#19abff';
       }
-      else {return '#ff9d00'} 
+      else {return '#ffd900'} 
     }
 
 //=============================================    

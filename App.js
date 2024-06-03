@@ -4,6 +4,8 @@ import * as d3 from 'd3';
 import TextField from '@mui/material/TextField';
 import Autocomplete from '@mui/material/Autocomplete';
 import Button from '@mui/material/Button';
+import IconButton from '@mui/material/IconButton';
+import LoadingButton from '@mui/lab/LoadingButton';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
 import Slider from '@mui/material/Slider';
 import Box from '@mui/material/Box';
@@ -16,14 +18,14 @@ import TableRow from '@mui/material/TableRow';
 import Paper from '@mui/material/Paper';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
-import IconButton from '@mui/material/IconButton';
+import RefreshIcon from '@mui/icons-material/Refresh';
 import { Collapse } from '@mui/material';
 //=============================================================================
 function App() {
   
-  const darkTheme = createTheme({
+  const lightTheme = createTheme({
     palette: {
-      mode: 'dark',
+      mode: 'light',
     },
   });
 
@@ -37,6 +39,7 @@ function App() {
   const [rows, setRows] = useState([]);
   const [connected, setConnected] = useState([]);
   const [open, setOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const urlref = useRef(null);
   const marks = [{label:'2h', value:'0'}, {label:'4h', value:'20'}, {label:'6h', value:'40'}, {label:'8h', value:'60'}, {label:'10h', value:'80'}, {label:'12h', value:'100'}, {label:'1d', value:'120'}, {label:'2d', value:'140'}, {label:'3d', value:'160'}];
   const currentTime = Date.now();
@@ -48,12 +51,14 @@ function App() {
 //=============================================================================
 //fetching location list
   useEffect(() => {
-    fetch('http://192.168.1.7:5000/site_list')
+    setIsLoading(true);
+    fetch('http://192.168.1.9:5000/site_list')
       .then((res) => {
         return res.json();
       })
       .then((data) => {
         setLocations(data);
+        setIsLoading(false);
       });
   }, []);
 
@@ -81,8 +86,8 @@ function App() {
       return;
     };
 
-    let url1 = 'http://192.168.1.7:5000/location?id=';
-    let urlRefresh = 'http://192.168.1.7:5000/location/refresh?id=';
+    let url1 = 'http://192.168.1.9:5000/location?id=';
+    let urlRefresh = 'http://192.168.1.9:5000/location/refresh?id=';
 
     for (let i = 0; i+1 <= locations.length; i++) {
       if (value.label == locations[i].name) {
@@ -90,6 +95,7 @@ function App() {
       };
     };
 
+    setIsLoading(true);
     fetch(url1 + urlref.current)
         .then((res) => {
           return res.json();
@@ -108,12 +114,14 @@ function App() {
                   })
                   .then((data3) => {
                     setFetchedData(data3);
+                    setIsLoading(false);
                   });
               };
             });
           }
           else {
             setFetchedData(data);
+            setIsLoading(false);
           };
         });
     }, [value]);
@@ -195,7 +203,7 @@ function App() {
 //=============================================
 //simulation
   const simulation = d3.forceSimulation(nodes)
-    .force('charge', d3.forceManyBody().strength(-25)) 
+    .force('charge', d3.forceManyBody().strength(-25))
     .force('x', d3.forceX(width / 2).strength(0.07))
     .force('y', d3.forceY(height / 2).strength(0.07))
     .force('collide', d3.forceCollide().radius(47))
@@ -221,15 +229,42 @@ function App() {
 //setting style
     function getNodeColor(node) {
       if (node.location != location) {
-        return 'rgb(232, 94, 28)';
+          return '#ff9d00';
       }
       else if (node.type == 'rtu') {
-      return 'rgb(25, 171, 255)';
+        let out = true;
+          for (let i = 0; i + 1 <= links.length; i++) {
+            if (node == links[i].source) {
+              out = false;
+            }
+            else if (node == links[i].target) {
+              out = false;
+            }
+          }
+        if (out == true) {
+          return '#db3e00';
+        }
+        else {
+          return '#19abff';
+        };
       }
       else {
-        return 'rgb(237, 153, 1)';
+        let out = true;
+          for (let i = 0; i + 1 <= links.length; i++) {
+            if (node == links[i].source) {
+              out = false;
+            }
+            else if (node == links[i].target) {
+              out = false;
+            }
+          }
+        if (out == true) {
+          return '#db3e00';
+        }
+        else {
+          return '#ffd900';
+        };
       };
-
     };
 
     function getLineStyle(link) {
@@ -250,12 +285,22 @@ function App() {
           }
         }
       if (out == true) {
-        return 2;
+        return 3;
       }
       else {
         return 0;
       };
     };
+
+    function getStrokeColour (node) {
+      if (node.location != location) {
+        return '#ffd900'
+      }
+      else if (node.type == 'rtu') {
+        return '#19abff';
+      }
+      else {return '#ff9d00'} 
+    }
 
 //=============================================    
 //rendering
@@ -264,7 +309,7 @@ function App() {
   .data(links)
   .enter().append('line')
     .attr('stroke-width', 1.5)
-    .attr('stroke', 'white')
+    .attr('stroke', '#909090')
     .attr('stroke-dasharray', getLineStyle);
 
   const graph = svg.selectAll('node')
@@ -319,6 +364,8 @@ function App() {
         return z;
       };
     };
+
+    
 
     setRows((createData(getLocationName(d), getAssetId(d))))
     setConnected(getConnectedNodes(d))
@@ -443,7 +490,7 @@ function App() {
   })
 //---------------------------------------------------------------------------
   .on('mouseout', function (d) {
-    nodeElements.attr('r', 26).attr('opacity', 1).attr('stroke-width', getOutline).attr('stroke', 'red');
+    nodeElements.attr('r', 26).attr('opacity', 1).attr('stroke-width', getOutline).attr('stroke', getStrokeColour);
     textElements.attr('font-size', '15');
     linkElements.style('stroke-width', 1.5);
     linkElements.style('opacity', 1);
@@ -452,7 +499,7 @@ function App() {
   const nodeElements = graph.append('circle')
     .attr('r', 26)
     .attr('fill', getNodeColor)
-    .attr('stroke', 'red')
+    .attr('stroke', getStrokeColour)
     .attr('stroke-width', getOutline)
       
   const textElements = graph.append('text')
@@ -468,9 +515,10 @@ function App() {
 //=============================================================================
 //refresh button
 const handleClick = event => {
-  let url1 = 'http://192.168.1.7:5000/location?id='
-  let urlRefresh = 'http://192.168.1.7:5000/location/refresh?id='
+  let url1 = 'http://192.168.1.9:5000/location?id='
+  let urlRefresh = 'http://192.168.1.9:5000/location/refresh?id='
 
+    setIsLoading(true);
     fetch(urlRefresh + urlref.current)
     .then((res) => {
       return res.json();
@@ -482,6 +530,7 @@ const handleClick = event => {
       })
       .then((data2) => {
         setFetchedData(data2);
+        setIsLoading(false);
       });
     });
 };
@@ -490,60 +539,63 @@ const handleClick = event => {
   return (
     <div id='main' className='App' style={{width: window.innerWidth, height: window.innerHeight}}>
         <div style={{float: 'right'}}>
-          <ThemeProvider theme={darkTheme}>
-            <Table sx={{ minWidth: 450 , maxwidth: 450 }} size='small'>
-              <TableHead>
-                <TableRow>
-                  <TableCell>
-                    <IconButton
-                      aria-label="expand row"
-                      size="small"
-                      onClick={() => setOpen(!open)}>
-                        {open ? <KeyboardArrowUpIcon/> : <KeyboardArrowDownIcon/>}
-                    </IconButton>
-                  </TableCell>
-                  <TableCell align='left'>Location Name</TableCell>
-                  <TableCell align='left'>Asset Name</TableCell>
-                  <TableCell align='center'>Connected Nodes</TableCell>
-                </TableRow>
-              </TableHead>
-            </Table>
-
-            <Collapse in={open} timeout="auto" unmountOnExit>
-              <Table>
+          <ThemeProvider theme={lightTheme}>
+            <div style={{float: 'left', paddingTop:10}}>
+              <Table sx={{ maxwidth: 450 }} size='small'>
+                <TableHead>
+                  <TableRow>
+                    <TableCell align='left'>Location Name</TableCell>
+                    <TableCell align='left'>Asset Name</TableCell>
+                  </TableRow>
+                </TableHead>
                 <TableBody>
                   {rows.map((row) => (
                     <TableRow
                       key={row.name}
                       sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
-                    >
-                    <TableCell></TableCell>
-                    <TableCell align='right'>{row.location}</TableCell>
-                    <TableCell align='right'>{row.asset}</TableCell>
-                    <TableCell align='left'></TableCell>
-                    { <TableCell></TableCell> }
-                    </TableRow>
-                  ))}
-
-                  {connected.map((row) => (
-                      <TableRow
-                      key={row.name}
                       >
-                      <TableCell></TableCell>
-                      <TableCell></TableCell>
-                      <TableCell></TableCell>
-                      <TableCell align='right'>{row.id}</TableCell>
-                      </TableRow>
+                      <TableCell align='left'>{row.location}</TableCell>
+                      <TableCell align='left'>{row.asset}</TableCell>
+                    </TableRow>
                   ))}
                 </TableBody>
               </Table>
-            </Collapse>
+            </div>
+            <div style={{width: 250, float: 'right'}}>
+              <Table size='small'>
+                <TableHead>
+                  <TableRow>
+                    <TableCell align='left'>Connected Nodes</TableCell>
+                    <TableCell align='right'>
+                      <IconButton
+                        aria-label="expand row"
+                        size="small"
+                        onClick={() => setOpen(!open)}>
+                          {open ? <KeyboardArrowUpIcon/> : <KeyboardArrowDownIcon/>}
+                      </IconButton>
+                    </TableCell>
+                  </TableRow>
+                </TableHead>
+                <Collapse in={open} timeout="auto" unmountOnExit>
+                  <TableBody>
+                    {connected.map((row) => (
+                      <TableRow
+                      key={row.name}
+                      sx={{ '&:last-child td, &:last-child th': { border: 0 } }}
+                      >
+                      <TableCell>{row.id}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Collapse>
+              </Table>
+            </div>
           </ThemeProvider>
         </div>  
 
-        <div style={{width: 480, height: 100}}>
-          <div style={{width: 120, padding: 20, float: 'right'}}>
-            <ThemeProvider theme={darkTheme}>
+        <div style={{ width:743, height: 100}}>
+          <div style={{ padding: 20, paddingTop: 27, paddingRight: 27,paddingLeft: 18, float: 'right'}}>
+              <div style={{float: 'left'}}>
               <Box sx={{ width: 200, paddingBottom: 2, paddingLeft: 1}}>
                 <Slider
                   size='small'
@@ -560,18 +612,29 @@ const handleClick = event => {
                   disabled={fetchedData == null ? true : false}
                 />
               </Box>
-              <Button
-                onClick={handleClick}
-                disabled={fetchedData == null ? true : false} 
-                variant='outlined'
-                size='large'>
-                refresh
-              </Button>
-            </ThemeProvider>
+              </div>
+              <div style={{float: 'right', paddingTop: 7, paddingLeft: 23}}>
+                <LoadingButton
+                  onClick={handleClick}
+                  endIcon={<RefreshIcon />}
+                  loading={isLoading}
+                  loadingPosition="end"
+                >
+                  <span>Refresh</span>
+                </LoadingButton>
+                {/* <Button
+                  onClick={handleClick}
+                  disabled={fetchedData == null ? true : false} 
+                  variant='outlined'
+                  size='large'
+                  startIcon={<RefreshIcon/>}>
+                  refresh
+                </Button> */}
+              </div>
           </div>
 
           <div style={{width: 300, padding: 20, paddingTop: 27}}>
-            <ThemeProvider theme={darkTheme}>
+            <ThemeProvider theme={lightTheme}>
               <Autocomplete
                 value={value}
                 onChange={(event, newValue) => {
@@ -583,7 +646,15 @@ const handleClick = event => {
                 renderInput={(params) => <TextField {...params} label="location"/>}
               /> 
             </ThemeProvider>
-          </div> 
+          </div>
+
+          {/* { isLoading 
+            ? <div style={{position:'absolute', bottom:0, backgroundColor: '#e6faff', height: 25, width: window.innerWidth, borderRadius: 3}}>
+               <b style={{color: '#002733', paddingLeft: 7}}>loading...</b>
+              </div>
+            : null
+          } */}
+            
         </div>
       <div style={{ position: 'fixed' }}>
         <svg ref={svgRef}></svg>

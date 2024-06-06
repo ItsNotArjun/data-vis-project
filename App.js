@@ -49,7 +49,7 @@ function App() {
 //fetching location list
   useEffect(() => {
     setIsLoading(true);
-    fetch('http://192.168.1.9:5000/site_list')
+    fetch('http://192.168.1.10:5000/site_list')
       .then((res) => {
         return res.json();
       })
@@ -83,8 +83,8 @@ function App() {
       return;
     };
 
-    let url1 = 'http://192.168.1.9:5000/location?id=';
-    let urlRefresh = 'http://192.168.1.9:5000/location/refresh?id=';
+    let url1 = 'http://192.168.1.10:5000/location?id=';
+    let urlRefresh = 'http://192.168.1.10:5000/location/refresh?id=';
 
     for (let i = 0; i+1 <= locations.length; i++) {
       if (value.label == locations[i].name) {
@@ -512,8 +512,8 @@ function App() {
 //=============================================================================
 //refresh button
 const handleClick = event => {
-  let url1 = 'http://192.168.1.9:5000/location?id='
-  let urlRefresh = 'http://192.168.1.9:5000/location/refresh?id='
+  let url1 = 'http://192.168.1.10:5000/location?id='
+  let urlRefresh = 'http://192.168.1.10:5000/location/refresh?id='
 
     setIsLoading(true);
     fetch(urlRefresh + urlref.current)
@@ -653,7 +653,7 @@ const handleClick = event => {
           } */}
             
         </div>
-      <div style={{ position: 'fixed' }}>
+      <div style={{ position: 'absolute' }}>
         <svg ref={svgRef}></svg>
       </div>
     </div>

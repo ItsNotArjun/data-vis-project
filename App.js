@@ -16,7 +16,10 @@ import TableRow from '@mui/material/TableRow';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import { Collapse } from '@mui/material';
+import FormGroup from '@mui/material/FormGroup';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import Checkbox from '@mui/material/Checkbox';
+import { Collapse, FormLabel, Radio, RadioGroup } from '@mui/material';
 //=============================================================================
 function App() {
   
@@ -37,9 +40,17 @@ function App() {
   const [connected, setConnected] = useState([]);
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [loadingError, setLoadingError] = useState(false)
+  const [radioOpacity, setRadioOpacity] = useState([]);
   const urlref = useRef(null);
   const marks = [{label:'2h', value:'0'}, {label:'4h', value:'20'}, {label:'6h', value:'40'}, {label:'8h', value:'60'}, {label:'10h', value:'80'}, {label:'12h', value:'100'}, {label:'1d', value:'120'}, {label:'2d', value:'140'}, {label:'3d', value:'160'}];
   const currentTime = Date.now();
+  
+  const radioOpacityRef = useRef(radioOpacity);
+
+  useEffect(() => {
+    radioOpacityRef.current = radioOpacity;
+  }, [radioOpacity])
 
   function createData(location, asset) {
     return [{location, asset}];
@@ -49,7 +60,7 @@ function App() {
 //fetching location list
   useEffect(() => {
     setIsLoading(true);
-    fetch('http://192.168.1.10:5000/site_list')
+    fetch('http://192.168.1.7:5000/site_list')
       .then((res) => {
         return res.json();
       })
@@ -83,8 +94,8 @@ function App() {
       return;
     };
 
-    let url1 = 'http://192.168.1.10:5000/location?id=';
-    let urlRefresh = 'http://192.168.1.10:5000/location/refresh?id=';
+    let url1 = 'http://192.168.1.7:5000/location?id=';
+    let urlRefresh = 'http://192.168.1.7:5000/location/refresh?id=';
 
     for (let i = 0; i+1 <= locations.length; i++) {
       if (value.label == locations[i].name) {
@@ -104,21 +115,30 @@ function App() {
               return res.json();
             })
             .then((data2) => {
-              if (data2.length == 0) {
                 fetch(url1 + urlref.current)
                   .then((res) => {
                     return res.json();
                   })
                   .then((data3) => {
-                    setFetchedData(data3);
-                    setIsLoading(false);
+                    if (data3 == 0) {
+                      setFetchedData('no data');
+                      setIsLoading(false);
+                      setLoadingError(true);
+                    }
+                    else {
+                      setFetchedData(data3);
+                      setIsLoading(false);
+                      setLoadingError(false);
+
+                    }
+                    
                   });
-              };
             });
           }
           else {
             setFetchedData(data);
             setIsLoading(false);
+            setLoadingError(false);
           };
         });
     }, [value]);
@@ -129,6 +149,12 @@ function App() {
     if (!fetchedData) {
       return;
     };
+
+    if (fetchedData === 'no data') {
+      setRenderData('no data');
+      return;
+    };
+
     const hour = 3600000;
     const nodes = fetchedData[0];
     const links = fetchedData[1];
@@ -168,352 +194,437 @@ function App() {
 //=============================================================================
 //drawing graph
   useEffect(() => {
-    if (!renderData) {
-      return;
-    };
-
-    if (renderData.length == 0) {
-      const text = document.createTextNode('no data');
-      document.getElementById('main').appendChild(text);
-    };
-
-  const nodes = [...renderData[0]];
-  const links = [...renderData[1]];
-
-  let location = '';
-
-  for (let i = 0; i+1 <= nodes.length; i++) {
-    if(nodes[i].type == 'rtu') {
-      location = nodes[i].location;
-    };
+  if (!renderData) {
+    return;
   };
 
-  const width = window.innerWidth;
-  const height = window.innerHeight;
+  if (renderData === 'no data') {
+    return;
+  }
+  else {
+    const nodes = [...renderData[0]];
+    const links = [...renderData[1]];
 
-  const svg = d3.select(svgRef.current) 
-  .attr('width', width)
-  .attr('height', height);
+    let location = '';
 
-  svg.selectAll("*").remove();
-    
-//=============================================
-//simulation
-  const simulation = d3.forceSimulation(nodes)
-    .force('charge', d3.forceManyBody().strength(-25))
-    .force('x', d3.forceX(width / 2).strength(0.07))
-    .force('y', d3.forceY(height / 2).strength(0.07))
-    .force('collide', d3.forceCollide().radius(47))
-    .force('link', d3.forceLink(links)
-    .id(link => link.id)
-    .distance(25)
-    .strength(0.1))
-    .on('tick', () => {
-      nodeElements
-        .attr('cx', node => node.x)
-        .attr('cy', node => node.y)
-      linkElements
-        .attr('x1', link => link.source.x)
-        .attr('y1', link => link.source.y)
-        .attr('x2', link => link.target.x)
-        .attr('y2', link => link.target.y)
-      textElements
-        .attr('x', node => node.x)
-        .attr('y', node => node.y);
-      });
-
-//=============================================
-//setting style
-    function getNodeColor(node) {
-      if (node.location != location) {
-          return '#ff9d00';
-      }
-      else if (node.type == 'rtu') {
-        let out = true;
-          for (let i = 0; i + 1 <= links.length; i++) {
-            if (node == links[i].source) {
-              out = false;
-            }
-            else if (node == links[i].target) {
-              out = false;
-            }
-          }
-        if (out == true) {
-          return '#db3e00';
-        }
-        else {
-          return '#19abff';
-        };
-      }
-      else {
-        let out = true;
-          for (let i = 0; i + 1 <= links.length; i++) {
-            if (node == links[i].source) {
-              out = false;
-            }
-            else if (node == links[i].target) {
-              out = false;
-            }
-          }
-        if (out == true) {
-          return '#db3e00';
-        }
-        else {
-          return '#ffd900';
-        };
+    for (let i = 0; i+1 <= nodes.length; i++) {
+      if(nodes[i].type == 'rtu') {
+        location = nodes[i].location;
       };
     };
 
-    function getLineStyle(link) {
-      if(link.direct == true) {
-        return '';
-      }
-      else {return '5 2';};
-    };
+    const width = window.innerWidth;
+    const height = window.innerHeight;
 
-    function getOutline(node) {
-      let out = true;
-      for (let i = 0; i + 1 <= links.length; i++) {
-          if (node == links[i].source) {
-            out = false;
-          }
-          else if (node == links[i].target) {
-            out = false;
-          }
+    const svg = d3.select(svgRef.current) 
+    .attr('width', width)
+    .attr('height', height);
+
+    svg.selectAll("*").remove();
+      
+  //=============================================
+  //simulation
+    const simulation = d3.forceSimulation(nodes)
+      .force('charge', d3.forceManyBody().strength(-25))
+      .force('x', d3.forceX(width / 2).strength(0.07))
+      .force('y', d3.forceY(height / 2).strength(0.07))
+      .force('collide', d3.forceCollide().radius(47))
+      .force('link', d3.forceLink(links)
+      .id(link => link.id)
+      .distance(25)
+      .strength(0.1))
+      .on('tick', () => {
+        nodeElements
+          .attr('cx', node => node.x)
+          .attr('cy', node => node.y)
+        linkElements
+          .attr('x1', link => link.source.x)
+          .attr('y1', link => link.source.y)
+          .attr('x2', link => link.target.x)
+          .attr('y2', link => link.target.y)
+        textElements
+          .attr('x', node => node.x)
+          .attr('y', node => node.y);
+        });
+
+  //=============================================
+  //setting style
+      function getNodeColor(node) {
+        if (node.location != location) {
+            return '#ff9d00';
         }
-      if (out == true) {
-        return 3;
-      }
-      else {
-        return 0;
-      };
-    };
-
-    function getStrokeColour (node) {
-      if (node.location != location) {
-        return '#ff9d00'
-      }
-      else if (node.type == 'rtu') {
-        return '#19abff';
-      }
-      else {return '#ffd900'} 
-    }
-
-//=============================================    
-//rendering
-  const linkElements = svg.append('g')
-  .selectAll('line')
-  .data(links)
-  .enter().append('line')
-    .attr('stroke-width', 1.5)
-    .attr('stroke', '#909090')
-    .attr('stroke-dasharray', getLineStyle);
-
-  const graph = svg.selectAll('node')
-  .data(nodes)
-  .enter().append('g')
-  .attr('class', function(d) { return 'node' + " " + d.id})
-  .on('click', function (d) {
-//---------------------------------------------------------------------------
-//for table
-    function getLocationName (data) {
-      for (let i = 0; i + 1 <= locations.length; i++) {
-        if (data.currentTarget.__data__.location == locations[i].url) {
-          return locations[i].name;
-        };
-      };
-    };
-
-    function getAssetId (data) {
-      return data.currentTarget.__data__.assetName
-    };
-
-    function getConnectedNodes (data) {
-      let x = new Set ();
-      let empty = true;
-      for (let i = 0; i + 1 <= links.length; i++) {
-        if (data.currentTarget.__data__.id == links[i].source.id) {
-          empty = false;
-          for (let j = 0; j + 1 <= nodes.length; j++) {
-            if(links[i].target.id == nodes[j].id){
-              x.add(nodes[j].assetName)
-            };
+        else if (node.type == 'rtu') {
+          let out = true;
+            for (let i = 0; i + 1 <= links.length; i++) {
+              if (node == links[i].source) {
+                out = false;
+              }
+              else if (node == links[i].target) {
+                out = false;
+              }
+            }
+          if (out == true) {
+            return '#db3e00';
+          }
+          else {
+            return '#19abff';
           };
-        };
-        if (data.currentTarget.__data__.id == links[i].target.id) {
-          empty = false;
-          for (let j = 0; j + 1 <= nodes.length; j++) {
-            if(links[i].source.id == nodes[j].id){
-              x.add(nodes[j].assetName)
-            };
+        }
+        else {
+          let out = true;
+            for (let i = 0; i + 1 <= links.length; i++) {
+              if (node == links[i].source) {
+                out = false;
+              }
+              else if (node == links[i].target) {
+                out = false;
+              }
+            }
+          if (out == true) {
+            return '#db3e00';
+          }
+          else {
+            return '#ffd900';
           };
         };
       };
-      if ( empty == true) {
-        return [{id: '-'}];
-      }
-      else {
-        let y = [...x];
-        let z = [];
-        for (let i = 0; i + 1 <= y.length; i++) {
-          z.push({id: y[i]});
-        };
-        return z;
+
+      function getLineStyle(link) {
+        if(link.direct == true) {
+          return '';
+        }
+        else {return '5 2';};
       };
-    };
 
-    
-
-    setRows((createData(getLocationName(d), getAssetId(d))))
-    setConnected(getConnectedNodes(d))
-//---------------------------------------------------------------------------
-//for clicked effect
-    function getConnectedNodesRadius (node) {
-      let x = new Set ();
-      let big = false;
-      if (node.id == d.currentTarget.__data__.id) {
-        return 31;
-      }
-      else {
+      function getOutline(node) {
+        let out = true;
         for (let i = 0; i + 1 <= links.length; i++) {
-          if (d.currentTarget.__data__.id == links[i].source.id) {
-            x.add(links[i].target.id);
-          };
-          if (d.currentTarget.__data__.id == links[i].target.id) {
-            x.add(links[i].source.id);
+            if (node == links[i].source) {
+              out = false;
+            }
+            else if (node == links[i].target) {
+              out = false;
+            }
+          }
+        if (out == true) {
+          return 3;
+        }
+        else {
+          return 0;
+        };
+      };
+
+      function getStrokeColour (node) {
+        if (node.location != location) {
+          return '#ff9d00'
+        }
+        else if (node.type == 'rtu') {
+          return '#19abff';
+        }
+        else {return '#ffd900'} 
+      }
+
+  //=============================================    
+  //rendering
+    const bg = svg.append('g').append('rect')
+    .attr('width', width)
+    .attr('height', height - 160)
+    .attr('fill', 'white')
+    .attr('opacity', 0)
+    .attr('y', 0)
+    .on('click', function(d) {
+        nodeElements.attr('r', 26).attr('opacity', getRadioOpacity).attr('stroke-width', getOutline).attr('stroke', getStrokeColour);
+        textElements.attr('font-size', '15').attr('opacity', getRadioTextOpacity);
+        linkElements.style('stroke-width', 1.5);
+        linkElements.style('opacity', getRadioStrokeOpacity);
+    })
+    const linkElements = svg.append('g')
+    .selectAll('line')
+    .data(links)
+    .enter().append('line')
+      .attr('stroke-width', 1.5)
+      .attr('stroke', '#909090')
+      .attr('stroke-dasharray', getLineStyle)
+      .attr('opacity', getRadioStrokeOpacity)
+
+    const graph = svg.selectAll('node')
+    .data(nodes)
+    .enter().append('g')
+    .attr('class', function(d) { return 'node' + " " + d.id})
+    .on('click', function (d) {
+  //---------------------------------------------------------------------------
+  //for table
+      function getLocationName (data) {
+        for (let i = 0; i + 1 <= locations.length; i++) {
+          if (data.currentTarget.__data__.location == locations[i].url) {
+            return locations[i].name;
           };
         };
-        let y = [...x];
-        for (let i = 0; i + 1 <= y.length; i++) {
-          if (node.id == y[i]) {
-            big = true;
+      };
+
+      function getAssetId (data) {
+        return data.currentTarget.__data__.assetName
+      };
+
+      function getConnectedNodes (data) {
+        let x = new Set ();
+        let empty = true;
+        for (let i = 0; i + 1 <= links.length; i++) {
+          if (data.currentTarget.__data__.id == links[i].source.id) {
+            empty = false;
+            for (let j = 0; j + 1 <= nodes.length; j++) {
+              if(links[i].target.id == nodes[j].id){
+                x.add(nodes[j].assetName)
+              };
+            };
+          };
+          if (data.currentTarget.__data__.id == links[i].target.id) {
+            empty = false;
+            for (let j = 0; j + 1 <= nodes.length; j++) {
+              if(links[i].source.id == nodes[j].id){
+                x.add(nodes[j].assetName)
+              };
+            };
           };
         };
-        if (big == true) {
+        if ( empty == true) {
+          return [{id: '-'}];
+        }
+        else {
+          let y = [...x];
+          let z = [];
+          for (let i = 0; i + 1 <= y.length; i++) {
+            z.push({id: y[i]});
+          };
+          return z;
+        };
+      };
+
+      
+
+      setRows((createData(getLocationName(d), getAssetId(d))))
+      setConnected(getConnectedNodes(d))
+  //---------------------------------------------------------------------------
+  //for clicked effect
+      function getConnectedNodesRadius (node) {
+        let x = new Set ();
+        let big = false;
+        if (node.id == d.currentTarget.__data__.id) {
           return 31;
         }
         else {
-          return 20;
+          for (let i = 0; i + 1 <= links.length; i++) {
+            if (d.currentTarget.__data__.id == links[i].source.id) {
+              x.add(links[i].target.id);
+            };
+            if (d.currentTarget.__data__.id == links[i].target.id) {
+              x.add(links[i].source.id);
+            };
+          };
+          let y = [...x];
+          for (let i = 0; i + 1 <= y.length; i++) {
+            if (node.id == y[i]) {
+              big = true;
+            };
+          };
+          if (big == true) {
+            return 31;
+          }
+          else {
+            return 20;
+          };
         };
       };
-    };
 
-    function getConnectedNodesFontSize (node) {
-      let x = new Set ();
-      let big = false;
-      if (node.id == d.currentTarget.__data__.id) {
-        return 16;
-      }
-      else {
-        for (let i = 0; i + 1 <= links.length; i++) {
-          if (d.currentTarget.__data__.id == links[i].source.id) {
-            x.add(links[i].target.id);
-          };
-          if (d.currentTarget.__data__.id == links[i].target.id) {
-            x.add(links[i].source.id);
-          };
-        };
-        let y = [...x];
-        for (let i = 0; i + 1 <= y.length; i++) {
-          if (node.id == y[i]) {
-            big = true;
-          };
-        };
-        if (big == true) {
-          return '16';
+      function getConnectedNodesFontSize (node) {
+        let x = new Set ();
+        let big = false;
+        if (node.id == d.currentTarget.__data__.id) {
+          return 16;
         }
         else {
-          return '12';
+          for (let i = 0; i + 1 <= links.length; i++) {
+            if (d.currentTarget.__data__.id == links[i].source.id) {
+              x.add(links[i].target.id);
+            };
+            if (d.currentTarget.__data__.id == links[i].target.id) {
+              x.add(links[i].source.id);
+            };
+          };
+          let y = [...x];
+          for (let i = 0; i + 1 <= y.length; i++) {
+            if (node.id == y[i]) {
+              big = true;
+            };
+          };
+          if (big == true) {
+            return '16';
+          }
+          else {
+            return '12';
+          };
         };
       };
-    };
 
-    function getConnectedNodesOpacity (node) {
-      let x = new Set ();
-      let big = false;
-      if (node.id == d.currentTarget.__data__.id) {
-        return 16;
-      }
-      else {
-        for (let i = 0; i + 1 <= links.length; i++) {
-          if (d.currentTarget.__data__.id == links[i].source.id) {
-            x.add(links[i].target.id);
-          };
-          if (d.currentTarget.__data__.id == links[i].target.id) {
-            x.add(links[i].source.id);
-          };
-        };
-        let y = [...x];
-        for (let i = 0; i + 1 <= y.length; i++) {
-          if (node.id == y[i]) {
-            big = true;
-          };
-        };
-        if (big == true) {
-          return '1';
+      function getConnectedNodesOpacity (node) {
+        let x = new Set ();
+        let big = false;
+        if (node.id == d.currentTarget.__data__.id) {
+          return 16;
         }
         else {
-          return '0.1';
+          for (let i = 0; i + 1 <= links.length; i++) {
+            if (d.currentTarget.__data__.id == links[i].source.id) {
+              x.add(links[i].target.id);
+            };
+            if (d.currentTarget.__data__.id == links[i].target.id) {
+              x.add(links[i].source.id);
+            };
+          };
+          let y = [...x];
+          for (let i = 0; i + 1 <= y.length; i++) {
+            if (node.id == y[i]) {
+              big = true;
+            };
+          };
+          if (big == true) {
+            return '1';
+          }
+          else {
+            return '0.1';
+          };
         };
       };
-    };
 
-    function getNodeStroke (node) {
-      if (node.id == d.currentTarget.__data__.id) {
-        return 2;
+      function getConnectedTextOpacity (node) {
+        let x = new Set ();
+        let big = false;
+        if (node.id == d.currentTarget.__data__.id) {
+          return 16;
+        }
+        else {
+          for (let i = 0; i + 1 <= links.length; i++) {
+            if (d.currentTarget.__data__.id == links[i].source.id) {
+              x.add(links[i].target.id);
+            };
+            if (d.currentTarget.__data__.id == links[i].target.id) {
+              x.add(links[i].source.id);
+            };
+          };
+          let y = [...x];
+          for (let i = 0; i + 1 <= y.length; i++) {
+            if (node.id == y[i]) {
+              big = true;
+            };
+          };
+          if (big == true) {
+            return '1';
+          }
+          else {
+            return '0.1';
+          };
+        };
+      };
+
+      function getNodeStroke (node) {
+        if (node.id == d.currentTarget.__data__.id) {
+          return 2;
+        }
+        else { return 0}
       }
-      else { return 0}
+
+      nodeElements.attr('r', getConnectedNodesRadius).attr('opacity', getConnectedNodesOpacity).attr('stroke', '#1423AD').attr('stroke-width', getNodeStroke);
+      textElements.attr('font-size', getConnectedNodesFontSize).attr('opacity', getConnectedTextOpacity);
+      linkElements.style('stroke-width', function(l) {
+        if(l.source.id == d.currentTarget.__data__.id || l.target.id == d.currentTarget.__data__.id) {
+        return 3;
+        }
+        else {
+          return 1.5;
+        };
+      });
+    
+      linkElements.style('opacity', function(l) {
+        if(l.source.id == d.currentTarget.__data__.id || l.target.id == d.currentTarget.__data__.id) {
+          return 1;
+        }
+        else {
+          return 0.1;
+        };
+      });
+    })
+  //---------------------------------------------------------------------------
+  function getRadioOpacity (node) {
+    if (radioOpacityRef.current.length == 0) {
+      return 1;
     }
-
-    nodeElements.attr('r', getConnectedNodesRadius).attr('opacity', getConnectedNodesOpacity).attr('stroke', 'white').attr('stroke-width', getNodeStroke);
-    textElements.attr('font-size', getConnectedNodesFontSize);
-    linkElements.style('stroke-width', function(l) {
-      if(l.source.id == d.currentTarget.__data__.id || l.target.id == d.currentTarget.__data__.id) {
-      return 3;
+    else {
+      let big = false
+      for (let i = 0; i + 1 <= radioOpacityRef.current.length; i++) {
+        if (radioOpacityRef.current[i] == node.id) {
+          big = true;
+        };
       }
-      else {
-        return 1.5;
-      };
-    });
-   
-    linkElements.style('opacity', function(l) {
-      if(l.source.id == d.currentTarget.__data__.id || l.target.id == d.currentTarget.__data__.id) {
+      if (big == true) {
         return 1;
       }
-      else {
-        return 0.1;
-      };
-    });
-  })
-//---------------------------------------------------------------------------
-  .on('mouseout', function (d) {
-    nodeElements.attr('r', 26).attr('opacity', 1).attr('stroke-width', getOutline).attr('stroke', getStrokeColour);
-    textElements.attr('font-size', '15');
-    linkElements.style('stroke-width', 1.5);
-    linkElements.style('opacity', 1);
-    });
+      else { return 0.3 }
+    }
+  }
 
-  const nodeElements = graph.append('circle')
-    .attr('r', 26)
-    .attr('fill', getNodeColor)
-    .attr('stroke', getStrokeColour)
-    .attr('stroke-width', getOutline)
-      
-  const textElements = graph.append('text')
-    .text(node => node.id)
-    .attr('font-size', 15)
-    .attr('fill', 'black')
-    .attr('text-anchor', 'middle')
-    .attr('dx', 0)
-    .attr('dy', '.35em');
+  function getRadioTextOpacity (node) {
+    if (radioOpacityRef.current.length == 0) {
+      return 1;
+    }
+    else {
+      let big = false
+      for (let i = 0; i + 1 <= radioOpacityRef.current.length; i++) {
+        if (radioOpacityRef.current[i] == node.id) {
+          big = true;
+        };
+      }
+      if (big == true) {
+        return 1;
+      }
+      else { return 0.1 }
+    }
+  }
 
-  }, [renderData]);
+  function getRadioStrokeOpacity (node) {
+    if (radioOpacityRef.current.length == 0) {
+      return 1;
+    }
+    else {
+      if (radioOpacityRef.current.length == nodes.length) {
+        return 1;
+      }
+      else { return 0.3; }
+    }
+  }
+  //---------------------------------------------------------------------------
+    const nodeElements = graph.append('circle')
+      .attr('r', 26)
+      .attr('fill', getNodeColor)
+      .attr('stroke', getStrokeColour)
+      .attr('stroke-width', getOutline)
+      .attr('opacity', getRadioOpacity)
+        
+    const textElements = graph.append('text')
+      .text(node => node.id)
+      .attr('font-size', 15)
+      .attr('fill', 'black')
+      .attr('text-anchor', 'middle')
+      .attr('dx', 0)
+      .attr('dy', '.35em')
+      .attr('opacity', getRadioTextOpacity)
+    } 
+  }, [renderData, radioOpacity]);
 
 //=============================================================================
 //refresh button
 const handleClick = event => {
-  let url1 = 'http://192.168.1.10:5000/location?id='
-  let urlRefresh = 'http://192.168.1.10:5000/location/refresh?id='
+  let url1 = 'http://192.168.1.7:5000/location?id='
+  let urlRefresh = 'http://192.168.1.7:5000/location/refresh?id='
 
     setIsLoading(true);
     fetch(urlRefresh + urlref.current)
@@ -533,6 +644,77 @@ const handleClick = event => {
 };
 
 //=============================================================================
+//rtu connections
+const handleRadioChange = (event) => {
+  const nodes = fetchedData[0];
+  const links = fetchedData[1];
+
+  let a = [];
+  for (let i = 0; i + 1 <= nodes.length; i ++) {
+    a.push(nodes[i].id);
+  };
+  
+  if(event.target.value === '1') {
+    let x = [];
+    for(let i = 0; i + 1 <= nodes.length; i ++) {
+      let y = 0;
+      for(let j = 0; j + 1 <= links.length; j++) {
+        if(nodes[i].id == links[j].source.id) {
+          y++
+        }
+        else if(nodes[i].id == links[j].target.id) {
+          y++
+        };
+      };
+      if (y <= 1) {
+        x.push(nodes[i].id)
+      };
+    };
+    setRadioOpacity(x);
+  }
+  else if(event.target.value === '2') {
+    let x = [];
+    for(let i = 0; i + 1 <= nodes.length; i ++) {
+      let y = 0;
+      for(let j = 0; j + 1 <= links.length; j++) {
+        if(nodes[i].id == links[j].source.id) {
+          y++
+        }
+        else if(nodes[i].id == links[j].target.id) {
+          y++
+        };
+      };
+      if (y <= 2) {
+        x.push(nodes[i].id)
+      };
+    };
+    setRadioOpacity(x);
+  }
+  else if(event.target.value === '3') {
+    let x = [];
+    for(let i = 0; i + 1 <= nodes.length; i ++) {
+      let y = 0;
+      for(let j = 0; j + 1 <= links.length; j++) {
+        if(nodes[i].id == links[j].source.id) {
+          y++
+        }
+        else if(nodes[i].id == links[j].target.id) {
+          y++
+        };
+      };
+      if (y <= 3) {
+        x.push(nodes[i].id)
+      };
+    };
+    setRadioOpacity(x);
+  }
+  else {
+    setRadioOpacity(a)
+  };
+};
+
+//=============================================================================
+
   return (
     <div id='main' className='App' style={{width: window.innerWidth, height: window.innerHeight}}>
         <div style={{float: 'right'}}>
@@ -591,7 +773,7 @@ const handleClick = event => {
         </div>  
 
         <div style={{ width:743, height: 100}}>
-          <div style={{ padding: 20, paddingTop: 27, paddingRight: 27,paddingLeft: 18, float: 'right'}}>
+          <div style={{ padding: 20, paddingTop: 27, paddingRight: 27,paddingLeft: 18, float: 'right' }}>
               <div style={{float: 'left'}}>
               <Box sx={{ width: 200, paddingBottom: 2, paddingLeft: 1}}>
                 <Slider
@@ -609,9 +791,17 @@ const handleClick = event => {
                   disabled={fetchedData == null ? true : false}
                 />
               </Box>
+              
+              <RadioGroup row onChange={handleRadioChange} defaultValue='all'>
+                <FormControlLabel disabled={fetchedData == false ? true : false} value= '1' control={<Radio/>} label='1'></FormControlLabel>
+                <FormControlLabel disabled={fetchedData == false ? true : false} value= '2' control={<Radio/>} label='2'></FormControlLabel>
+                <FormControlLabel disabled={fetchedData == false ? true : false} value= '3' control={<Radio/>} label='3'></FormControlLabel>
+                <FormControlLabel disabled={fetchedData == false ? true : false} value= 'all' control={<Radio/>} label='all'></FormControlLabel>
+              </RadioGroup>
               </div>
               <div style={{float: 'right', paddingTop: 7, paddingLeft: 23}}>
                 <LoadingButton
+                  disabled={fetchedData == null ? true : false}
                   onClick={handleClick}
                   endIcon={<RefreshIcon />}
                   loading={isLoading}
@@ -619,14 +809,6 @@ const handleClick = event => {
                 >
                   <span>Refresh</span>
                 </LoadingButton>
-                {/* <Button
-                  onClick={handleClick}
-                  disabled={fetchedData == null ? true : false} 
-                  variant='outlined'
-                  size='large'
-                  startIcon={<RefreshIcon/>}>
-                  refresh
-                </Button> */}
               </div>
           </div>
 
@@ -643,19 +825,17 @@ const handleClick = event => {
                 renderInput={(params) => <TextField {...params} label="location"/>}
               /> 
             </ThemeProvider>
-          </div>
-
-          {/* { isLoading 
-            ? <div style={{position:'absolute', bottom:0, backgroundColor: '#e6faff', height: 25, width: window.innerWidth, borderRadius: 3}}>
-               <b style={{color: '#002733', paddingLeft: 7}}>loading...</b>
-              </div>
-            : null
-          } */}
-            
+          </div>         
         </div>
-      <div style={{ position: 'absolute' }}>
-        <svg ref={svgRef}></svg>
-      </div>
+      {
+        loadingError
+        ? <div style={{ width: window.innerWidth, height: window.innerHeight, zIndex: '-1'}}>
+            <b style={{ }}>No Data Found</b>
+          </div>
+        : <div id='svgDiv' style={{ position: 'absolute' }}>
+            <svg ref={svgRef}></svg>
+          </div>
+      }
     </div>
   )
 };

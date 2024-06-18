@@ -234,9 +234,12 @@ function App() {
       .distance(25)
       .strength(0.1))
       .on('tick', () => {
-        nodeElements
+        nodeRtuElements
           .attr('cx', node => node.x)
           .attr('cy', node => node.y)
+        nodeGatewayElements
+          .attr('x', node => node.x - 28)
+          .attr('y', node => node.y - 28)
         linkElements
           .attr('x1', link => link.source.x)
           .attr('y1', link => link.source.y)
@@ -296,34 +299,6 @@ function App() {
         else {return '5 2';};
       };
 
-      function getOutline(node) {
-        let out = true;
-        for (let i = 0; i + 1 <= links.length; i++) {
-            if (node == links[i].source) {
-              out = false;
-            }
-            else if (node == links[i].target) {
-              out = false;
-            }
-          }
-        if (out == true) {
-          return 3;
-        }
-        else {
-          return 0;
-        };
-      };
-
-      function getStrokeColour (node) {
-        if (node.location != location) {
-          return '#ff9d00'
-        }
-        else if (node.type == 'rtu') {
-          return '#19abff';
-        }
-        else {return '#ffd900'} 
-      }
-
   //=============================================    
   //rendering
     const bg = svg.append('g').append('rect')
@@ -333,10 +308,10 @@ function App() {
     .attr('opacity', 0)
     .attr('y', 0)
     .on('click', function(d) {
-        nodeElements.attr('r', 26).attr('opacity', getRadioOpacity).attr('stroke-width', getOutline).attr('stroke', getStrokeColour);
-        textElements.attr('font-size', '15').attr('opacity', getRadioTextOpacity);
-        linkElements.style('stroke-width', 1.5);
-        linkElements.style('opacity', getRadioStrokeOpacity);
+        nodeRtuElements.attr('r', 26).attr('opacity', getRadioOpacity).attr('stroke-width', 0);
+        nodeGatewayElements.attr('width', 56).attr('height', 56).attr('opacity', getRadioOpacity).attr('stroke-width', 0);
+        textElements.attr('font-size', '15').attr('opacity', getRadioOpacity);
+        linkElements.style('stroke-width', 1.5).style('opacity', getRadioStrokeOpacity);
     })
     const linkElements = svg.append('g')
     .selectAll('line')
@@ -350,7 +325,11 @@ function App() {
     const graph = svg.selectAll('node')
     .data(nodes)
     .enter().append('g')
-    .attr('class', function(d) { return 'node' + " " + d.id})
+    .attr('class', function(d) { if(d.type == 'rtu') {
+                                  return ( 'rtu ' + d.id)
+                                }
+                                else {return ( 'gateway ' + d.id )}
+          })
     .on('click', function (d) {
   //---------------------------------------------------------------------------
   //for table
@@ -458,10 +437,10 @@ function App() {
             };
           };
           if (big == true) {
-            return '16';
+            return 16;
           }
           else {
-            return '12';
+            return 12;
           };
         };
       };
@@ -496,45 +475,16 @@ function App() {
         };
       };
 
-      function getConnectedTextOpacity (node) {
-        let x = new Set ();
-        let big = false;
-        if (node.id == d.currentTarget.__data__.id) {
-          return 16;
-        }
-        else {
-          for (let i = 0; i + 1 <= links.length; i++) {
-            if (d.currentTarget.__data__.id == links[i].source.id) {
-              x.add(links[i].target.id);
-            };
-            if (d.currentTarget.__data__.id == links[i].target.id) {
-              x.add(links[i].source.id);
-            };
-          };
-          let y = [...x];
-          for (let i = 0; i + 1 <= y.length; i++) {
-            if (node.id == y[i]) {
-              big = true;
-            };
-          };
-          if (big == true) {
-            return '1';
-          }
-          else {
-            return '0.1';
-          };
-        };
-      };
-
       function getNodeStroke (node) {
         if (node.id == d.currentTarget.__data__.id) {
-          return 2;
+          return 2.5;
         }
         else { return 0}
       }
 
-      nodeElements.attr('r', getConnectedNodesRadius).attr('opacity', getConnectedNodesOpacity).attr('stroke', '#1423AD').attr('stroke-width', getNodeStroke);
-      textElements.attr('font-size', getConnectedNodesFontSize).attr('opacity', getConnectedTextOpacity);
+      nodeRtuElements.attr('r', getConnectedNodesRadius).attr('opacity', getConnectedNodesOpacity).attr('stroke', '#1423AD').attr('stroke-width', getNodeStroke);
+      nodeGatewayElements.attr('opacity', getConnectedNodesOpacity).attr('stroke', '#1423AD').attr('stroke-width', getNodeStroke);
+      textElements.attr('font-size', getConnectedNodesFontSize).attr('opacity', getConnectedNodesOpacity);
       linkElements.style('stroke-width', function(l) {
         if(l.source.id == d.currentTarget.__data__.id || l.target.id == d.currentTarget.__data__.id) {
         return 3;
@@ -542,9 +492,8 @@ function App() {
         else {
           return 1.5;
         };
-      });
-    
-      linkElements.style('opacity', function(l) {
+      })
+      .style('opacity', function(l) {
         if(l.source.id == d.currentTarget.__data__.id || l.target.id == d.currentTarget.__data__.id) {
           return 1;
         }
@@ -552,7 +501,7 @@ function App() {
           return 0.1;
         };
       });
-    })
+    });
   //---------------------------------------------------------------------------
   function getRadioOpacity (node) {
     if (radioOpacityRef.current.length == 0) {
@@ -572,24 +521,6 @@ function App() {
     }
   }
 
-  function getRadioTextOpacity (node) {
-    if (radioOpacityRef.current.length == 0) {
-      return 1;
-    }
-    else {
-      let big = false
-      for (let i = 0; i + 1 <= radioOpacityRef.current.length; i++) {
-        if (radioOpacityRef.current[i] == node.id) {
-          big = true;
-        };
-      }
-      if (big == true) {
-        return 1;
-      }
-      else { return 0.1 }
-    }
-  }
-
   function getRadioStrokeOpacity (node) {
     if (radioOpacityRef.current.length == 0) {
       return 1;
@@ -602,11 +533,16 @@ function App() {
     }
   }
   //---------------------------------------------------------------------------
-    const nodeElements = graph.append('circle')
+    const nodeRtuElements = d3.selectAll('.rtu').append('circle')
       .attr('r', 26)
       .attr('fill', getNodeColor)
-      .attr('stroke', getStrokeColour)
-      .attr('stroke-width', getOutline)
+      .attr('opacity', getRadioOpacity)
+
+      const nodeGatewayElements = d3.selectAll('.gateway').append('rect')
+      .attr('width', 56)
+      .attr('height', 56)
+      .attr('rx', 13)
+      .attr('fill', getNodeColor)
       .attr('opacity', getRadioOpacity)
         
     const textElements = graph.append('text')
@@ -616,7 +552,7 @@ function App() {
       .attr('text-anchor', 'middle')
       .attr('dx', 0)
       .attr('dy', '.35em')
-      .attr('opacity', getRadioTextOpacity)
+      .attr('opacity', getRadioOpacity)
     } 
   }, [renderData, radioOpacity]);
 

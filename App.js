@@ -38,29 +38,34 @@ function App() {
   const [sliderValue, setSliderValue] = useState(80);
   const [rows, setRows] = useState([]);
   const [connected, setConnected] = useState([]);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
-  const [loadingError, setLoadingError] = useState(false)
-  const [radioOpacity, setRadioOpacity] = useState([]);
+  const [loadingError, setLoadingError] = useState(false);
+  const [radioValue, setRadioValue] = useState(1);
   const urlref = useRef(null);
+  const locationref = useRef(null);
   const marks = [{label:'2h', value:'0'}, {label:'4h', value:'20'}, {label:'6h', value:'40'}, {label:'8h', value:'60'}, {label:'10h', value:'80'}, {label:'12h', value:'100'}, {label:'1d', value:'120'}, {label:'2d', value:'140'}, {label:'3d', value:'160'}];
   const currentTime = Date.now();
-  
-  const radioOpacityRef = useRef(radioOpacity);
+  const radioValueRef = useRef(radioValue);
 
   useEffect(() => {
-    radioOpacityRef.current = radioOpacity;
-  }, [radioOpacity])
+    radioValueRef.current = radioValue;
+  }, [radioValue])
 
   function createData(location, asset) {
     return [{location, asset}];
   };
 
+
+  const params = new URLSearchParams(document.location.search);
+  const key = params.get('key');
+
 //=============================================================================
 //fetching location list
   useEffect(() => {
     setIsLoading(true);
-    fetch('http://192.168.1.7:5000/site_list')
+     fetch('http://192.168.1.5:5000/site_list' + '?key=' + key)
+    // fetch('http://192.168.1.5:5000/site_list')
       .then((res) => {
         return res.json();
       })
@@ -94,8 +99,8 @@ function App() {
       return;
     };
 
-    let url1 = 'http://192.168.1.7:5000/location?id=';
-    let urlRefresh = 'http://192.168.1.7:5000/location/refresh?id=';
+    let url1 = 'http://192.168.1.5:5000/location?id=';
+    let urlRefresh = 'http://192.168.1.5:5000/location/refresh?id=';
 
     for (let i = 0; i+1 <= locations.length; i++) {
       if (value.label == locations[i].name) {
@@ -205,11 +210,10 @@ function App() {
     const nodes = [...renderData[0]];
     const links = [...renderData[1]];
 
-    let location = '';
-
     for (let i = 0; i+1 <= nodes.length; i++) {
       if(nodes[i].type == 'rtu') {
-        location = nodes[i].location;
+        locationref.current = nodes[i].location;
+        break;
       };
     };
 
@@ -253,7 +257,7 @@ function App() {
   //=============================================
   //setting style
       function getNodeColor(node) {
-        if (node.location != location) {
+        if (node.location != locationref.current) {
             return '#ff9d00';
         }
         else if (node.type == 'rtu') {
@@ -504,13 +508,47 @@ function App() {
     });
   //---------------------------------------------------------------------------
   function getRadioOpacity (node) {
-    if (radioOpacityRef.current.length == 0) {
-      return 1;
-    }
+    let a = [];
+    let x = [];
+    for(let i = 0; i + 1 <= nodes.length; i ++) {
+      let y = 0;
+
+      for(let j = 0; j + 1 <= links.length; j++) {
+        if(nodes[i].id == links[j].source.id) {
+          y++
+        }
+        else if(nodes[i].id == links[j].target.id) {
+          y++
+        };
+      };
+      a.push({id: nodes[i].id, connections: y})
+    };
+
+    if (!radioValueRef.current) {
+      for(let i = 0; i + 1 <= a.length; i++) {
+        if (a[i].connections <= 1) {
+          x.push(a[i].id)
+        };
+        }
+      }
+
     else {
+      for(let i = 0; i + 1 <= 4; i++) {
+        if(radioValueRef.current == i + 1) {
+          for(let j = 0; j + 1 <= a.length; j++) {
+            if (i == 3) {
+              x.push(a[j].id)
+            }
+            else if (a[j].connections <= i + 1) {
+              x.push(a[j].id)
+            };
+          }
+        }
+      }
+    }
       let big = false
-      for (let i = 0; i + 1 <= radioOpacityRef.current.length; i++) {
-        if (radioOpacityRef.current[i] == node.id) {
+      for (let i = 0; i + 1 <= x.length; i++) {
+        if (x[i] == node.id) {
           big = true;
         };
       }
@@ -518,20 +556,60 @@ function App() {
         return 1;
       }
       else { return 0.3 }
-    }
   }
 
   function getRadioStrokeOpacity (node) {
-    if (radioOpacityRef.current.length == 0) {
-      return 1;
-    }
+    let a = [];
+    let x = [];
+    for(let i = 0; i + 1 <= nodes.length; i ++) {
+      let y = 0;
+      for(let j = 0; j + 1 <= links.length; j++) {
+        if(nodes[i].id == links[j].source.id) {
+          y++
+        }
+        else if(nodes[i].id == links[j].target.id) {
+          y++
+        };
+      };
+      a.push({id: nodes[i].id, connections: y})
+    };
+
+    if (!radioValueRef.current) {
+      for(let i = 0; i + 1 <= a.length; i++) {
+        if (a[i].connections <= 1) {
+          x.push(a[i].id)
+        };
+        }
+      }
+
     else {
-      if (radioOpacityRef.current.length == nodes.length) {
+      for(let i = 0; i + 1 <= 4; i++) {
+        if(radioValueRef.current == i + 1) {
+          for(let j = 0; j + 1 <= a.length; j++) {
+            if (i == 3) {
+              x.push(a[j].id)
+            }
+            else if (a[j].connections <= i + 1) {
+              x.push(a[j].id)
+            };
+          }
+        }
+      }
+    }
+      let big = false
+      for (let i = 0; i + 1 <= x.length; i++) {
+        if (x[i] == node.target.id) {
+          big = true;
+        }
+        else if (x[i] == node.source.id) {
+          big = true;
+        };
+      }
+      if (big == true) {
         return 1;
       }
-      else { return 0.3; }
-    }
-  }
+      else { return 0.3 }
+  };
   //---------------------------------------------------------------------------
     const nodeRtuElements = d3.selectAll('.rtu').append('circle')
       .attr('r', 26)
@@ -554,13 +632,13 @@ function App() {
       .attr('dy', '.35em')
       .attr('opacity', getRadioOpacity)
     } 
-  }, [renderData, radioOpacity]);
+  }, [renderData, radioValue]);
 
 //=============================================================================
 //refresh button
 const handleClick = event => {
-  let url1 = 'http://192.168.1.7:5000/location?id='
-  let urlRefresh = 'http://192.168.1.7:5000/location/refresh?id='
+  let url1 = 'http://192.168.1.5:5000/location?id='
+  let urlRefresh = 'http://192.168.1.5:5000/location/refresh?id='
 
     setIsLoading(true);
     fetch(urlRefresh + urlref.current)
@@ -582,70 +660,10 @@ const handleClick = event => {
 //=============================================================================
 //rtu connections
 const handleRadioChange = (event) => {
-  const nodes = fetchedData[0];
-  const links = fetchedData[1];
-
-  let a = [];
-  for (let i = 0; i + 1 <= nodes.length; i ++) {
-    a.push(nodes[i].id);
-  };
-  
-  if(event.target.value === '1') {
-    let x = [];
-    for(let i = 0; i + 1 <= nodes.length; i ++) {
-      let y = 0;
-      for(let j = 0; j + 1 <= links.length; j++) {
-        if(nodes[i].id == links[j].source.id) {
-          y++
-        }
-        else if(nodes[i].id == links[j].target.id) {
-          y++
-        };
-      };
-      if (y <= 1) {
-        x.push(nodes[i].id)
-      };
+  for (let i = 0; i + 1 <= 4; i++) {
+    if(event.target.value == (i + 1)) {
+      setRadioValue(i + 1)
     };
-    setRadioOpacity(x);
-  }
-  else if(event.target.value === '2') {
-    let x = [];
-    for(let i = 0; i + 1 <= nodes.length; i ++) {
-      let y = 0;
-      for(let j = 0; j + 1 <= links.length; j++) {
-        if(nodes[i].id == links[j].source.id) {
-          y++
-        }
-        else if(nodes[i].id == links[j].target.id) {
-          y++
-        };
-      };
-      if (y <= 2) {
-        x.push(nodes[i].id)
-      };
-    };
-    setRadioOpacity(x);
-  }
-  else if(event.target.value === '3') {
-    let x = [];
-    for(let i = 0; i + 1 <= nodes.length; i ++) {
-      let y = 0;
-      for(let j = 0; j + 1 <= links.length; j++) {
-        if(nodes[i].id == links[j].source.id) {
-          y++
-        }
-        else if(nodes[i].id == links[j].target.id) {
-          y++
-        };
-      };
-      if (y <= 3) {
-        x.push(nodes[i].id)
-      };
-    };
-    setRadioOpacity(x);
-  }
-  else {
-    setRadioOpacity(a)
   };
 };
 
@@ -708,44 +726,43 @@ const handleRadioChange = (event) => {
           </ThemeProvider>
         </div>  
 
-        <div style={{ width:743, height: 100}}>
+        <div style={{ width:794, height: 100}}>
           <div style={{ padding: 20, paddingTop: 27, paddingRight: 27,paddingLeft: 18, float: 'right' }}>
-              <div style={{float: 'left'}}>
-              <Box sx={{ width: 200, paddingBottom: 2, paddingLeft: 1}}>
-                <Slider
-                  size='small'
-                  valueLabelDisplay='off'
-                  defaultValue={80}
-                  track={false}
-                  step={20}
-                  min={0}
-                  max={160}
-                  marks={marks}
-                  onChange={(event, newValue) => {
-                    setSliderValue(newValue);
-                  }}
-                  disabled={fetchedData == null ? true : false}
-                />
-              </Box>
+            <div style={{float: 'right', paddingTop: 7, paddingLeft: 23}}>
+              <LoadingButton
+                disabled={fetchedData == null ? true : false}
+                onClick={handleClick}
+                endIcon={<RefreshIcon />}
+                loading={isLoading}
+                loadingPosition="end"
+              >
+                <span>Refresh</span>
+              </LoadingButton>
+            </div>
               
-              <RadioGroup row onChange={handleRadioChange} defaultValue='all'>
-                <FormControlLabel disabled={fetchedData == false ? true : false} value= '1' control={<Radio/>} label='1'></FormControlLabel>
-                <FormControlLabel disabled={fetchedData == false ? true : false} value= '2' control={<Radio/>} label='2'></FormControlLabel>
-                <FormControlLabel disabled={fetchedData == false ? true : false} value= '3' control={<Radio/>} label='3'></FormControlLabel>
-                <FormControlLabel disabled={fetchedData == false ? true : false} value= 'all' control={<Radio/>} label='all'></FormControlLabel>
-              </RadioGroup>
-              </div>
-              <div style={{float: 'right', paddingTop: 7, paddingLeft: 23}}>
-                <LoadingButton
-                  disabled={fetchedData == null ? true : false}
-                  onClick={handleClick}
-                  endIcon={<RefreshIcon />}
-                  loading={isLoading}
-                  loadingPosition="end"
-                >
-                  <span>Refresh</span>
-                </LoadingButton>
-              </div>
+            <Box sx={{ width: 200, paddingBottom: 4, paddingLeft: 1}}>
+              <Slider
+                size='small'
+                valueLabelDisplay='off'
+                defaultValue={40}
+                track={false}
+                step={20}
+                min={0}
+                max={160}
+                marks={marks}
+                onChange={(event, newValue) => {
+                  setSliderValue(newValue);
+                }}
+                disabled={fetchedData == null ? true : false}
+              />
+            </Box>
+            <FormLabel>RTU connected to atmost specified number of Gateways</FormLabel>
+            <RadioGroup row onChange={handleRadioChange} defaultValue='1'>
+              <FormControlLabel disabled={fetchedData == false ? true : false} value= '1' control={<Radio/>} label='1'></FormControlLabel>
+              <FormControlLabel disabled={fetchedData == false ? true : false} value= '2' control={<Radio/>} label='2'></FormControlLabel>
+              <FormControlLabel disabled={fetchedData == false ? true : false} value= '3' control={<Radio/>} label='3'></FormControlLabel>
+              <FormControlLabel disabled={fetchedData == false ? true : false} value= '4' control={<Radio/>} label='all'></FormControlLabel>
+            </RadioGroup>
           </div>
 
           <div style={{width: 300, padding: 20, paddingTop: 27}}>
